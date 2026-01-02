@@ -1,83 +1,106 @@
-# 🔐 CryptoPass
+# 🔐 CryptoPass v1.2.0
 
-**CryptoPass** is a high-security, local-first password manager and cryptographic key generator. Built with Python and CustomTkinter, it focuses on modern encryption standards (AES-256-GCM), secure memory handling, and a flexible multi-mode recovery system.
+**CryptoPass** is a high-security, local-first password manager and cryptographic key generator. Built with Python and CustomTkinter, it features a modern GUI, industrial-grade encryption (AES-256-GCM), and a comprehensive vault for both passwords and X.509 certificates.
 
-![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![Security](https://img.shields.io/badge/security-AES--256--GCM-green.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-orange.svg)
+
+---
 
 ## ✨ Features
 
 ### 🛡️ Core Security
-- **AES-256-GCM:** Authenticated encryption for all sensitive data.
-- **Argon2id:** Industry-leading, memory-hard master password hashing.
-- **Secure Memory:** Explicit zeroing of encryption keys in RAM after use.
-- **Local First:** Your data never leaves your machine. Encrypted SQLite storage.
+- **Strict Enforced Policy**: Mandatory 12+ character passwords with complexity rules (Upper/Lower/Digit/Special).
+- **Security Checklist**: Real-time visual validation during setup to prevent weak secrets.
+- **AES-256-GCM**: Authenticated encryption for all sensitive vault fields.
+- **Argon2id**: Memory-hard, state-of-the-art master password hashing.
+
+### 📜 Certificate & Key Vault
+- **Certificate Management:** Import, parse, and store X.509 certificates (`.pem`, `.crt`).
+- **Metadata Extraction:** Automatically extracts Common Name, Issuer, and Expiry dates.
+- **Multi-Algorithm Key Gen:** 
+  - **Asymmetric:** RSA (up to 4096-bit), Ed25519, X.509.
+  - **Symmetric:** AES-256, ChaCha20, HMAC.
+  - **SSH:** OpenSSH format Ed25519 and RSA keys.
 
 ### 📲 Smart Login & Recovery
-- **TOTP Primary:** 6-digit authenticator code for daily quick access.
-- **Master Password Fallback:** 
-  - **Lost Phone Mode:** Wipes TOTP and forces a security reset.
-  - **Temporary Mode:** Limited access with persistent security warnings.
-- **BIP-39 Recovery:** 24-word seed phrase as the ultimate fail-safe.
-
-### 🔑 Generation Tools
-- **Password Generator:** 6 types including Standard, Passphrase, PIN, and Pattern-based.
-- **Key Generator:** RSA (up to 4096-bit), Ed25519, AES-256, SSH Keys, X.509 Certificates, HMAC, and ChaCha20.
-- **Similar Char Randomization:** Increases entropy by randomly swapping look-alike characters (e.g., `0/O`, `1/l`).
+- **Multi-Factor Auth (MFA):** Integrated TOTP authenticator support.
+- **Tiered Access:** 
+  - **Master Password:** Root authority for setup and recovery.
+  - **Login Password + TOTP:** Fast, secure daily access.
+- **BIP-39 Recovery:** 24-word "Seed Phrase" for ultimate disaster recovery.
 
 ### 📊 User Experience
-- **Modern Dark UI:** Sleek glassmorphism-inspired design using CustomTkinter.
-- **Vault Analytics:** Visual statistics and strength distribution charts.
-- **Auto-Lock:** Customizable session timeout for better security.
+- **Modern Dark UI:** Sleek, responsive design built with CustomTkinter.
+- **Vault Analytics:** Visual stats on password age and strength distribution.
+- **Session Auto-Lock:** Configurable timeout (5m to 24h) with thread-safe management.
 - **Secure Clipboard:** Auto-clears sensitive data after 30 seconds.
+
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Python 3.8+
-- [Optional] PyInstaller (for building standalone)
+- [Git](https://git-scm.com/)
 
-### Installation
+### Quick Start
 
-1. **Clone the repository:**
+1. **Clone & Enter:**
    ```bash
    git clone https://github.com/yourusername/cryptopass.git
    cd cryptopass
    ```
 
-2. **Install dependencies:**
+2. **Install Requirements:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the application:**
+3. **Run:**
    ```bash
    python main.py
    ```
 
+---
+
 ## 🛠️ Building Standalone
 
-To create a single `.exe` (Windows) or binary (Linux/macOS):
+Create a portable executable for your OS:
 
 ```bash
 pip install pyinstaller
+# Windows
 pyinstaller --noconsole --onefile --add-data "gui;gui" --name "CryptoPass" main.py
 ```
-*See [BUILDING.md](./BUILDING.md) for detailed instructions.*
+*See [BUILDING.md](./BUILDING.md) for full cross-platform instructions.*
+
+---
 
 ## 🔒 Security Architecture
 
 ### Key Hierarchy
-1. **Master Password** → Argon2id → **Master Key**.
-2. **TOTP Secret** → SHA-256 → **TOTP Key**.
-3. **Wrapped Key** = Encrypt(Master Key, key=TOTP Key).
+CryptoPass uses a tiered unsealing mechanism for the **Data Encryption Key (DEK)**:
+- **Master Path:** Master Password → Argon2id → MKEK → Unseals DEK.
+- **Daily Path:** Login Password + TOTP Key → Unseals DEK (Session-restricted).
 
-### Memory Safety
-Unlike standard Python applications, CryptoPass uses `bytearray` buffers for keys and performs manual `zero_memory` operations to mitigate memory scraping attacks.
+### Zero-Knowledge Policy
+We never store your passwords or keys. All data is encrypted locally using keys derived on-the-fly. If you lose your Master Password and Recovery Mnemonic, your data is unrecoverable even by us.
+
+---
+
+## 🗺️ Roadmap (Milestone 2)
+- [ ] **SQLCipher Integration:** Transition to full-database-level encryption.
+- [ ] **Auto-Lock Triggers:** Lock on system sleep/lid close.
+- [ ] **Audit Logging:** Encrypted history of vault modifications.
+- [ ] **E2E Cloud Sync:** Secure, client-side encrypted synchronization.
+
+---
 
 ## 📄 License
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+Licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 ## ⚠️ Disclaimer
-While CryptoPass uses industry-standard encryption, use it at your own risk. Always keep your 24-word recovery phrase in a safe, physical location.
+CryptoPass is provided "as is". While it implements top-tier security standards, we recommend keeping your 24-word recovery phrase in a physical, safe location.

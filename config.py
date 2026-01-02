@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Application Info
 APP_NAME = "CryptoPass"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.2.0"
 
 # Paths
 APP_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -25,7 +25,7 @@ CLIPBOARD_CLEAR_SECONDS = 30
 
 # Password Generator Defaults
 DEFAULT_PASSWORD_LENGTH = 16
-MIN_PASSWORD_LENGTH = 8
+MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 128
 
 # Key Generation Settings

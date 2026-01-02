@@ -26,7 +26,8 @@ class TOTPManager:
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(uri)
         qr.make(fit=True)
-        return qr.make_image(fill_color="black", back_color="white")
+        # Convert to RGB to ensure it's a standard PIL Image instance
+        return qr.make_image(fill_color="black", back_color="white").convert("RGB")
     
     @staticmethod
     def verify_code(secret: str, code: str) -> bool:

@@ -11,6 +11,7 @@ class StrengthMeter(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         
         self.configure(fg_color="transparent")
+        self.current_score = 0
         
         # Strength bar
         self.bar_frame = ctk.CTkFrame(self, height=8, corner_radius=4)
@@ -37,6 +38,7 @@ class StrengthMeter(ctk.CTkFrame):
             strength: Strength label (Weak, Fair, Good, Strong)
         """
         # Update bar
+        self.current_score = score
         self.strength_bar.set(score / 100)
         
         # Update color based on strength
@@ -51,3 +53,7 @@ class StrengthMeter(ctk.CTkFrame):
         
         # Update label
         self.strength_label.configure(text=f"{strength} ({score}%)", text_color=color)
+
+    def get_score(self) -> int:
+        """Return the current strength score."""
+        return self.current_score

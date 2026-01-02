@@ -282,27 +282,25 @@ class PasswordGenerator:
     @staticmethod
     def calculate_strength(password: str) -> dict:
         """
-        Calculate password strength score.
+        Calculate password strength score with advanced heuristic analysis.
         
         Returns:
             Dictionary with score (0-100) and feedback
         """
+        if not password:
+            return {'score': 0, 'strength': "Empty", 'feedback': ["Password cannot be empty"]}
+
         score = 0
         feedback = []
-        
         length = len(password)
         
-        # Length scoring
-        if length >= 8:
-            score += 10
-        if length >= 12:
-            score += 10
-        if length >= 16:
-            score += 10
-        if length >= 20:
-            score += 10
+        # 1. Length scoring (Base)
+        if length >= 8: score += 10
+        if length >= 12: score += 20
+        if length >= 16: score += 20
+        if length >= 24: score += 10
         
-        # Character variety
+        # 2. Character variety
         has_upper = bool(re.search(r'[A-Z]', password))
         has_lower = bool(re.search(r'[a-z]', password))
         has_digit = bool(re.search(r'\d', password))
@@ -311,50 +309,54 @@ class PasswordGenerator:
         variety_count = sum([has_upper, has_lower, has_digit, has_symbol])
         score += variety_count * 10
         
-        # Entropy estimation
-        charset_size = 0
-        if has_upper:
-            charset_size += 26
-        if has_lower:
-            charset_size += 26
-        if has_digit:
-            charset_size += 10
-        if has_symbol:
-            charset_size += 30
+        # 3. Security Bonus
+        # Bonus for using all 4 character types
+        if variety_count == 4:
+            score += 10
         
-        if charset_size > 0:
-            import math
-            entropy = length * math.log2(charset_size)
-            if entropy >= 60:
-                score += 20
-            elif entropy >= 40:
-                score += 10
+        # 4. Pattern Penalties (Deductions)
+        # Repeated characters (e.g., 'aaaa')
+        repeats = len(re.findall(r'(.)\1{2,}', password))
+        if repeats > 0:
+            score -= repeats * 10
+            feedback.append("Avoid long sequences of repeated characters")
+            
+        # Sequential characters (e.g., 'abc', '123')
+        sequences = 0
+        for i in range(len(password) - 2):
+            chunk = password[i:i+3].lower()
+            # Alpha sequence
+            if ord(chunk[1]) == ord(chunk[0]) + 1 and ord(chunk[2]) == ord(chunk[1]) + 1:
+                sequences += 1
+            # Numeric sequence
+            if chunk.isdigit() and int(chunk[1]) == int(chunk[0]) + 1 and int(chunk[2]) == int(chunk[1]) + 1:
+                sequences += 1
         
-        # Feedback
-        if length < 12:
-            feedback.append("Consider using at least 12 characters")
-        if not has_upper:
-            feedback.append("Add uppercase letters")
-        if not has_lower:
-            feedback.append("Add lowercase letters")
-        if not has_digit:
-            feedback.append("Add numbers")
-        if not has_symbol:
-            feedback.append("Add symbols for extra security")
+        if sequences > 0:
+            score -= sequences * 5
+            feedback.append("Avoid common sequences like 'abc' or '123'")
+
+        # 5. Common Passwords Check
+        common = ["password", "qwerty", "admin123", "welcome", "12345678", "cryptopass"]
+        if password.lower() in common:
+            score = 10
+            feedback.append("This is a very common password")
         
-        score = min(100, score)
+        # Final normalization
+        score = max(0, min(100, score))
         
-        if score >= 80:
-            strength = "Strong"
-        elif score >= 60:
-            strength = "Good"
-        elif score >= 40:
-            strength = "Fair"
-        else:
-            strength = "Weak"
+        if score >= 90: strength = "Excellent"
+        elif score >= 75: strength = "Strong"
+        elif score >= 50: strength = "Good"
+        elif score >= 30: strength = "Fair"
+        else: strength = "Weak"
+        
+        # Add constructive feedback
+        if length < 12: feedback.append("Use 12+ characters for better security")
+        if variety_count < 3: feedback.append("Mix upper, lower, numbers, and symbols")
         
         return {
             'score': score,
             'strength': strength,
-            'feedback': feedback
+            'feedback': list(set(feedback)) # Unique feedback
         }

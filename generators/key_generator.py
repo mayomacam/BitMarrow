@@ -247,15 +247,52 @@ class KeyGenerator:
         
         return KeyResult(
             key_type=KeyType.X509,
-            public_key=cert_pem,
+            public_key=cert_pem, # This must be BEGIN CERTIFICATE
             private_key=private_pem,
             key_size=key_size,
             additional_info={
                 "common_name": common_name,
-                "validity_days": validity_days,
+                "expiry_date": (datetime.utcnow() + timedelta(days=validity_days)).isoformat(),
+                "issuer": common_name,
+                "serial_number": cert.serial_number,
                 "algorithm": "Ed25519" if use_ed25519 else "RSA-4096"
             }
         )
+
+    @staticmethod
+    def parse_certificate(cert_pem: str) -> dict:
+        """
+        Parse an X.509 certificate and extract metadata.
+        
+        Args:
+            cert_pem: PEM encoded certificate string
+            
+        Returns:
+            Dictionary with certificate details
+        """
+        try:
+            cert = x509.load_pem_x509_certificate(
+                cert_pem.encode('utf-8'), 
+                default_backend()
+            )
+            
+            subject = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+            common_name = subject[0].value if subject else "Unknown"
+            
+            issuer = cert.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)
+            issuer_name = issuer[0].value if issuer else "Unknown"
+            
+            return {
+                "common_name": common_name,
+                "issuer": issuer_name,
+                "expiry_date": cert.not_valid_after.isoformat(),
+                "not_before": cert.not_valid_before.isoformat(),
+                "serial_number": cert.serial_number,
+                "version": cert.version.name,
+                "fingerprint": cert.fingerprint(hashes.SHA256()).hex()
+            }
+        except Exception as e:
+            raise ValueError(f"Failed to parse certificate: {str(e)}")
     
     def _generate_hmac(self, hash_algorithm: str = "SHA-256") -> KeyResult:
         """

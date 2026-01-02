@@ -5,6 +5,8 @@ import customtkinter as ctk
 import threading
 import hashlib
 import json
+import os
+from pathlib import Path
 from typing import Optional
 
 from config import APP_NAME, SESSION_TIMEOUT_MINUTES
@@ -18,6 +20,7 @@ from gui.login_frame import LoginFrame
 from gui.vault_frame import VaultFrame
 from gui.password_gen_frame import PasswordGenFrame
 from gui.key_gen_frame import KeyGenFrame
+from gui.key_vault_frame import KeyVaultFrame
 from gui.stats_frame import StatsFrame
 from utils.clipboard import ClipboardManager
 
@@ -122,17 +125,31 @@ class CryptoPassApp(ctk.CTk):
             totp_key = bytearray(hashlib.sha256(secret_bytes).digest())
             temp_encryption = EncryptionManager(totp_key)
             
-            master_key_bytes = temp_encryption.decrypt(encrypted_backup_key)
+            decrypted_key_raw = temp_encryption.decrypt(encrypted_backup_key)
             zero_memory(totp_key)
             
+            # RESILIENCE: Try to detect if it's hex (new format) or legacy string
+            try:
+                # New format: hex string
+                master_key_bytes = bytearray.fromhex(decrypted_key_raw)
+            except ValueError:
+                # Legacy format: raw bytes as string (latin-1)
+                master_key_bytes = bytearray(decrypted_key_raw.encode('latin-1'))
+            
+            if len(master_key_bytes) != 32:
+                raise ValueError(f"Decrypted key length is {len(master_key_bytes)}, expected 32. "
+                                 "Database migration required via Master Password.")
+
             # Initialize main encryption
-            self.encryption = EncryptionManager(bytearray(master_key_bytes.encode()))
+            self.encryption = EncryptionManager(master_key_bytes)
             self.db.set_encryption(self.encryption)
             
             self._show_main_app()
             return True
         except Exception as e:
             print(f"TOTP Unlock failed: {e}")
+            # If we reach here, the database likely has corrupted recovery info from v1.1.0
+            # We should guide the user to their Master Password.
             return False
 
     def _login_with_password(self, password: str, config: dict) -> bool:
@@ -202,16 +219,22 @@ class CryptoPassApp(ctk.CTk):
         dialog.transient(self)
         dialog.grab_set()
         
-        ctk.CTkLabel(dialog, text="📝 Recovery Phrase", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
-        ctk.CTkLabel(dialog, text="Write these 24 words down! It is your final fail-safe.", 
+        dialog.grid_columnconfigure(0, weight=1)
+        dialog.grid_rowconfigure(0, weight=1)
+        
+        scroll_frame = ctk.CTkScrollableFrame(dialog, fg_color="transparent")
+        scroll_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        ctk.CTkLabel(scroll_frame, text="📝 Recovery Phrase", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
+        ctk.CTkLabel(scroll_frame, text="Write these 24 words down! It is your final fail-safe.", 
                     text_color="#e67e22", wraplength=400).pack(pady=(0, 10))
         
-        text = ctk.CTkTextbox(dialog, height=120, width=400)
+        text = ctk.CTkTextbox(scroll_frame, height=120, width=400)
         text.insert("1.0", mnemonic)
         text.configure(state="disabled")
         text.pack(pady=10)
         
-        ctk.CTkLabel(dialog, text="📲 Setup Authenticator (Primary Login)", 
+        ctk.CTkLabel(scroll_frame, text="📲 Setup Authenticator (Primary Login)", 
                     font=ctk.CTkFont(size=18, weight="bold")).pack(pady=20)
         
         secret = self.totp_mgr.generate_secret()
@@ -220,18 +243,32 @@ class CryptoPassApp(ctk.CTk):
         
         # Convert PIL to TkImage
         from PIL import ImageTk
-        img = ctk.CTkImage(light_image=qr_img, dark_image=qr_img, size=(150, 150))
+        img = ctk.CTkImage(light_image=qr_img, dark_image=qr_img, size=(180, 180))
         
-        qr_label = ctk.CTkLabel(dialog, image=img, text="")
+        qr_label = ctk.CTkLabel(scroll_frame, image=img, text="")
         qr_label.image = img # Keep reference
-        qr_label.pack()
+        qr_label.pack(pady=5)
         
+        ctk.CTkLabel(scroll_frame, text="Enter the 6-digit code to verify:", 
+                    font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
+        
+        verify_entry = ctk.CTkEntry(scroll_frame, width=150, font=ctk.CTkFont(size=16, weight="bold"), justify="center")
+        verify_entry.pack(pady=5)
+        
+        error_label = ctk.CTkLabel(scroll_frame, text="", text_color="#e74c3c")
+        error_label.pack()
+
         def finish():
+            code = verify_entry.get().strip().replace(" ", "")
+            if not self.totp_mgr.verify_code(secret, code):
+                error_label.configure(text="❌ Invalid code. Please try again.")
+                return
+            
             # Store TOTP info and wrap Master Key
             # Backup Key = MasterKey encrypted with TOTPSecret
             totp_key = bytearray(hashlib.sha256(secret.encode()).digest())
             temp_enc = EncryptionManager(totp_key)
-            wrapped_key = temp_enc.encrypt(master_key.decode('latin-1'))
+            wrapped_key = temp_enc.encrypt(master_key.hex())
             
             self.db.update_recovery_info(
                 totp_secret=secret.encode(),
@@ -240,7 +277,7 @@ class CryptoPassApp(ctk.CTk):
             dialog.destroy()
             self._show_main_app()
 
-        ctk.CTkButton(dialog, text="I have saved everything", command=finish, height=40).pack(pady=20)
+        ctk.CTkButton(scroll_frame, text="Verify & Finish Setup", command=finish, height=45, font=ctk.CTkFont(weight="bold")).pack(pady=20)
 
     def _force_password_change(self):
         for widget in self.winfo_children(): widget.destroy()
@@ -256,7 +293,13 @@ class CryptoPassApp(ctk.CTk):
         self.tabview.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
         self.grid_rowconfigure(1, weight=1)
         
-        tabs = {"🔐 Vault": VaultFrame, "⚡ Generator": PasswordGenFrame, "🔑 Keys": KeyGenFrame, "📊 Stats": StatsFrame}
+        tabs = {
+            "🔐 Passwords": VaultFrame, 
+            "⚡ Pass Gen": PasswordGenFrame, 
+            "🔑 Key Gen": KeyGenFrame, 
+            "📜 Key Vault": KeyVaultFrame,
+            "📊 Stats": StatsFrame
+        }
         self.frames = {}
         for name, frame_cls in tabs.items():
             self.tabview.add(name)
@@ -266,7 +309,7 @@ class CryptoPassApp(ctk.CTk):
             f.grid(row=0, column=0, sticky="nsew")
             self.frames[name] = f
             
-        self.vault_frame = self.frames["🔐 Vault"]
+        self.vault_frame = self.frames["🔐 Passwords"]
         self.vault_frame.refresh()
         self.tabview.configure(command=self._on_tab_change)
         self._reset_session_timer()
@@ -295,13 +338,12 @@ class CryptoPassApp(ctk.CTk):
     def _on_tab_change(self):
         current = self.tabview.get()
         if "Stats" in current: self.frames["📊 Stats"].refresh()
-        elif "Vault" in current: self.frames["🔐 Vault"].refresh()
+        elif "Passwords" in current: self.frames["🔐 Passwords"].refresh()
+        elif "Key Vault" in current: self.frames["📜 Key Vault"].refresh()
 
     def _reset_session_timer(self):
-        if self.session_timer: self.session_timer.cancel()
-        self.session_timer = threading.Timer(SESSION_TIMEOUT_MINUTES * 60, self._lock_vault)
-        self.session_timer.daemon = True
-        self.session_timer.start()
+        if self.session_timer: self.after_cancel(self.session_timer)
+        self.session_timer = self.after(SESSION_TIMEOUT_MINUTES * 60 * 1000, self._lock_vault)
 
     def _on_close(self):
         if self.encryption: self.encryption.cleanup()

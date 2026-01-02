@@ -1,15 +1,18 @@
-# Crypto Password Manager - Task Breakdown
+# Crypto Password Manager - Master Task Breakdown
 
-## Planning Phase
+This document tracks the complete lifecycle of the CryptoPass project, from initial foundation to the current advanced security roadmap.
+
+## ✅ Phase 1: Planning & Architecture (Completed)
 - [x] Create implementation plan with architecture design
 - [x] Get user approval on the plan
 
-## Implementation Phase
+## ✅ Phase 2: Core Implementation (Completed)
 
 ### Core Security Module
-- [x] Create encryption/decryption utilities using Fernet (symmetric encryption)
+- [x] Create encryption/decryption utilities using Fernet (initial) and AES-256-GCM (current)
 - [x] Implement secure key derivation (PBKDF2/Argon2)
 - [x] Create master password hashing system
+- [x] Create secure memory zeroing utility (`bytearray` management)
 
 ### Database Layer
 - [x] Design encrypted SQLite schema
@@ -33,35 +36,62 @@
 - [x] HMAC key generator
 
 ### GUI Application
-- [x] Design main window layout
+- [x] Design main window layout (CustomTkinter)
 - [x] Master password login screen
 - [x] Password vault view (list/search/filter)
 - [x] Password generator interface
 - [x] Key generator interface
-- [x] Settings panel
+- [x] Stats dashboard
 - [x] Password strength meter
 
-### Security Features
+### Security Framework
 - [x] Clipboard auto-clear
-- [x] Session timeout
+- [x] Session timeout (Fixed threading issues)
 - [x] Master password validation
 - [x] Secure memory handling
 
-## Verification Phase
-- [x] Test all password generation types
-- [x] Test all key generation types
-- [x] Test database encryption/decryption
-- [x] Test GUI functionality
-- [x] Security review
+---
 
-## Security Hardening (from research)
-- [x] Integrate SQLCipher concepts (full-db encryption via total field encryption)
-- [x] Implement AES-256-GCM for sensitive data
-- [x] Create secure memory zeroing utility (`bytearray` management)
-- [x] Audit application code for sensitive data leaks to logs/stdout
+## ✅ Milestone 1: Core Foundation & Certificate Vault - v1.1.0/v1.2.0 (Completed)
+- [x]- **Entropy Check**: Score at least "Good"- **UI Logic**: Standardized `StrengthMeter` and `CTkImage` rendering paths.
+- **KeyGen Fix**: Fixed packing order and visibility issues in `KeyGenFrame`.
+- **UI Accessibility**: Implemented `ScrollableFrame` for setup and security dialogs.
+ error
+- [x] **UI Polish**: Implemented ScrollableFrame for setup; Fixed KeyGen options packing
+- [x] **Privacy UI**: Implement "Show/Hide" toggles for private keys in Generator & Vault
+- [x] **Label Fix**: Standardize "Public Key" vs "Private Key" naming (removed confusing "Secret" suffix)
+- [x] **Security Logic**: Enhanced password strength meter with sequence heuristics and "Excellent" (100%) tier scaling
+- [x] **DB Upgrade**: Added certificate metadata and expiry schema
+- [x] **Versioning**: Established `CHANGELOG.md` and bumped to v1.2.0 (Security Hardened)
+- [x] **Cert Logic**: Implemented X.509 parsing and enhanced generation
+- [x] **UI**: Launched the dedicated "📜 Key Vault" management interface
 
-## Documentation & Distribution
+---
+
+## 🚀 Milestone 2: Tiered Authentication & MFA (Current Phase)
+
+### 1. Auth & Session Architecture
+- [x] Document Tiered Auth (MP + LP + TOTP) unsealing logic
+- [x] **Password Policy**: Implement strict 12-char complexity enforcement.
+- [x] **Security Checklist UI**: Add visual checklist to setup/change password screens.
+- [x] **TOTP Verification Loop**: Mandatory app verification during setup.
+- [ ] **Dual Passwords**: Update `DatabaseManager` for Master vs Login hashes
+- [ ] **MFA Integration**: Implement TOTP-required login path
+- [ ] **Easy Login**: Design session persistence (5 min - 24 hrs)
+- [ ] **Key Sealing**: Update `EncryptionManager` for tiered unsealing (MKEK/LKEK)
+
+### 2. Implementation Backlog
+- [ ] **Full DB Encryption**: Integrate **SQLCipher** concepts
+- [ ] **Argon2id Standards**: Update KDF parameters to OWASP 2023 recommendations
+- [ ] **Enhanced Locking**: Lock on system suspend/inactivity
+- [ ] **Audit Logging**: Local encrypted security logs
+- [ ] **Cloud Sync**: Research E2E encrypted sync architecture
+
+---
+
+## ✅ Documentation & Distribution (Completed)
 - [x] Create comprehensive README.md for GitHub
 - [x] Create BUILDING.md for standalone executable instructions
 - [x] Create .gitignore for security and hygiene
 - [x] Finalize project LICENSE (MIT)
+- [x] Initialize Project Versioning & Changelog

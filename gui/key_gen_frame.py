@@ -74,52 +74,43 @@ class KeyGenFrame(ctk.CTkFrame):
                 text_color="gray"
             ).pack(anchor="w", padx=(25, 0))
         
-        # RSA size option
-        self.rsa_options = ctk.CTkFrame(content, fg_color="transparent")
-        self.rsa_options.pack(fill="x", pady=(15, 0))
+        # Options container (for dynamic options)
+        self.options_container = ctk.CTkFrame(content, fg_color="transparent")
+        self.options_container.pack(fill="x", pady=5)
         
-        ctk.CTkLabel(self.rsa_options, text="RSA Key Size").pack(anchor="w")
-        self.rsa_size = ctk.CTkComboBox(
-            self.rsa_options,
-            values=["3072", "4096"],
-            width=120
-        )
+        # RSA size option (Initial child of options_container)
+        self.rsa_options = ctk.CTkFrame(self.options_container, fg_color="transparent")
+        ctk.CTkLabel(self.rsa_options, text="RSA Key Size", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
+        self.rsa_size = ctk.CTkComboBox(self.rsa_options, values=["3072", "4096"], width=120)
         self.rsa_size.set("4096")
         self.rsa_size.pack(anchor="w", pady=5)
         
         # HMAC algorithm option
-        self.hmac_options = ctk.CTkFrame(content, fg_color="transparent")
-        
-        ctk.CTkLabel(self.hmac_options, text="Hash Algorithm").pack(anchor="w")
-        self.hmac_algo = ctk.CTkComboBox(
-            self.hmac_options,
-            values=["SHA-256", "SHA-384", "SHA-512"],
-            width=120
-        )
+        self.hmac_options = ctk.CTkFrame(self.options_container, fg_color="transparent")
+        ctk.CTkLabel(self.hmac_options, text="Hash Algorithm", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
+        self.hmac_algo = ctk.CTkComboBox(self.hmac_options, values=["SHA-256", "SHA-384", "SHA-512"], width=120)
         self.hmac_algo.set("SHA-256")
         self.hmac_algo.pack(anchor="w", pady=5)
         
         # X.509 options
-        self.x509_options = ctk.CTkFrame(content, fg_color="transparent")
-        
-        ctk.CTkLabel(self.x509_options, text="Common Name").pack(anchor="w")
+        self.x509_options = ctk.CTkFrame(self.options_container, fg_color="transparent")
+        ctk.CTkLabel(self.x509_options, text="Common Name", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
         self.x509_cn = ctk.CTkEntry(self.x509_options, width=200)
         self.x509_cn.insert(0, "CryptoPass Self-Signed")
         self.x509_cn.pack(anchor="w", pady=5)
-        
-        self.x509_ed25519 = ctk.CTkCheckBox(
-            self.x509_options, text="Use Ed25519 (vs RSA-4096)"
-        )
+        self.x509_ed25519 = ctk.CTkCheckBox(self.x509_options, text="Use Ed25519 (Modern/Fast)")
         self.x509_ed25519.select()
         self.x509_ed25519.pack(anchor="w", pady=5)
         
-        # Generate button
-        self.generate_btn = ctk.CTkButton(
-            content, text="⚡ Generate Key",
-            height=45, font=ctk.CTkFont(size=14, weight="bold"),
-            command=self._generate
-        )
+        # Action buttons are packed AFTER the options container
+        self.generate_btn = ctk.CTkButton(content, text="✨ Generate Key", height=45, command=self._generate)
         self.generate_btn.pack(fill="x", pady=(20, 0))
+
+        self.import_btn = ctk.CTkButton(content, text="📥 Import Certificate", height=45, fg_color="transparent", border_width=2, command=self._import_certificate)
+        self.import_btn.pack(fill="x", pady=(10, 0))
+        
+        # Initialize visibility
+        self._on_type_change()
     
     def _create_preview_panel(self):
         """Create right panel with key preview."""
@@ -147,7 +138,8 @@ class KeyGenFrame(ctk.CTkFrame):
         
         public_header = ctk.CTkFrame(self.public_frame, fg_color="transparent")
         public_header.pack(fill="x")
-        ctk.CTkLabel(public_header, text="Public Key / Certificate").pack(side="left")
+        self.public_label = ctk.CTkLabel(public_header, text="🔑 Public Key / Certificate")
+        self.public_label.pack(side="left")
         self.copy_public_btn = ctk.CTkButton(
             public_header, text="📋 Copy", width=70,
             command=lambda: self._copy_key("public")
@@ -162,7 +154,16 @@ class KeyGenFrame(ctk.CTkFrame):
         
         private_header = ctk.CTkFrame(self.private_frame, fg_color="transparent")
         private_header.pack(fill="x")
-        ctk.CTkLabel(private_header, text="Private Key / Secret").pack(side="left")
+        ctk.CTkLabel(private_header, text="🔒 Private Key / Secret").pack(side="left")
+        
+        self.private_visible = False
+        self.toggle_private_btn = ctk.CTkButton(
+            private_header, text="👁️ Show", width=70,
+            fg_color="transparent", border_width=1,
+            command=self._toggle_private_visibility
+        )
+        self.toggle_private_btn.pack(side="right", padx=(0, 5))
+
         self.copy_private_btn = ctk.CTkButton(
             private_header, text="📋 Copy", width=70,
             command=lambda: self._copy_key("private")
@@ -224,6 +225,34 @@ class KeyGenFrame(ctk.CTkFrame):
             self._display_key()
         except Exception as e:
             self.info_label.configure(text=f"Error: {str(e)}", text_color="#e74c3c")
+
+    def _import_certificate(self):
+        """Import an existing certificate file."""
+        from tkinter import filedialog
+        filepath = filedialog.askopenfilename(
+            filetypes=[("PEM files", "*.pem"), ("Certificate files", "*.crt"), ("All files", "*.*")],
+            title="Import Certificate"
+        )
+        
+        if filepath:
+            try:
+                with open(filepath, 'r') as f:
+                    cert_pem = f.read()
+                
+                # Parse to verify and get metadata
+                metadata = KeyGenerator.parse_certificate(cert_pem)
+                
+                # Create a pseudo KeyResult for display
+                self.current_key = KeyResult(
+                    key_type=KeyType.X509,
+                    public_key=cert_pem,
+                    private_key="", # No private key for imported certs usually
+                    key_size=0, # Unknown without deeper parsing of public key
+                    additional_info=metadata
+                )
+                self._display_key()
+            except Exception as e:
+                self.info_label.configure(text=f"Import Error: {str(e)}", text_color="#e74c3c")
     
     def _display_key(self):
         """Display the generated key."""
@@ -233,6 +262,14 @@ class KeyGenFrame(ctk.CTkFrame):
         # Hide info label, show key fields
         self.info_label.pack_forget()
         
+        # Update labels based on key type
+        if self.current_key.key_type == KeyType.X509:
+            self.public_label.configure(text="📜 X.509 Certificate (PEM)")
+        elif "SSH" in self.current_key.key_type.value:
+            self.public_label.configure(text="📋 SSH Public Key")
+        else:
+            self.public_label.configure(text="🔑 Public Key")
+
         # Show/hide public key based on key type
         if self.current_key.public_key:
             self.public_frame.pack(fill="x")
@@ -241,13 +278,38 @@ class KeyGenFrame(ctk.CTkFrame):
         else:
             self.public_frame.pack_forget()
         
-        # Show private key
+        # Show private key frame
         self.private_frame.pack(fill="x")
-        self.private_text.delete("1.0", "end")
-        self.private_text.insert("1.0", self.current_key.private_key)
+        
+        # Reset visibility state on new generation
+        self.private_visible = False
+        self.toggle_private_btn.configure(text="👁️ Show")
+        self._update_private_display()
         
         # Show action buttons
         self.action_frame.pack(fill="x", pady=(10, 0))
+
+    def _toggle_private_visibility(self):
+        """Toggle private key visibility."""
+        self.private_visible = not self.private_visible
+        self.toggle_private_btn.configure(text="👁️ Hide" if self.private_visible else "👁️ Show")
+        self._update_private_display()
+
+    def _update_private_display(self):
+        """Update the private key text box based on visibility."""
+        if not self.current_key: return
+        
+        self.private_text.delete("1.0", "end")
+        if self.private_visible:
+            self.private_text.insert("1.0", self.current_key.private_key)
+        else:
+            # Mask the content (Ed25519 keys are short, show a generic block)
+            lines = self.current_key.private_key.splitlines()
+            if len(lines) > 2:
+                masked = f"{lines[0]}\n[ SENSITIVE PRIVATE KEY MASKED ]\n{lines[-1]}"
+            else:
+                masked = "[ SENSITIVE PRIVATE KEY MASKED ]"
+            self.private_text.insert("1.0", masked)
     
     def _copy_key(self, key_type: str):
         """Copy key to clipboard."""
@@ -275,13 +337,24 @@ class KeyGenFrame(ctk.CTkFrame):
         name = dialog.get_input()
         
         if name:
+            expiry = None
+            metadata = None
+            if self.current_key.key_type == KeyType.X509:
+                metadata = self.current_key.additional_info
+                expiry = metadata.get('expiry_date') if metadata else None
+
             self.db.add_crypto_key(
                 name=name,
                 key_type=self.current_key.key_type.value,
                 public_key=self.current_key.public_key,
                 private_key=self.current_key.private_key,
-                key_size=self.current_key.key_size
+                key_size=self.current_key.key_size,
+                expiry_date=expiry,
+                metadata=metadata
             )
+            
+            self.save_btn.configure(text="✓ Saved!", state="disabled")
+            self.after(2000, lambda: self.save_btn.configure(text="💾 Save to Vault", state="normal"))
     
     def _export_to_file(self):
         """Export key to file."""

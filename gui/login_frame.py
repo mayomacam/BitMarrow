@@ -6,6 +6,8 @@ import customtkinter as ctk
 from typing import Callable, Optional
 from core.totp_manager import TOTPManager
 from gui.components.strength_meter import StrengthMeter
+from generators.password_generator import PasswordGenerator
+from utils.validators import PasswordValidator
 
 class LoginFrame(ctk.CTkFrame):
     """Unified login and recovery interface."""
@@ -18,6 +20,9 @@ class LoginFrame(ctk.CTkFrame):
         self.on_setup = on_setup
         self.is_first_time = is_first_time
         
+        # Validation checks
+        self.check_labels = {}
+        
         self.configure(fg_color="transparent")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -25,7 +30,7 @@ class LoginFrame(ctk.CTkFrame):
         self._create_content()
     
     def _create_content(self):
-        self.container = ctk.CTkFrame(self, width=400, height=500)
+        self.container = ctk.CTkFrame(self, width=400, height=600 if self.is_first_time else 500)
         self.container.grid(row=0, column=0, padx=20, pady=20)
         self.container.grid_propagate(False)
         
@@ -35,38 +40,93 @@ class LoginFrame(ctk.CTkFrame):
             self._show_totp_login_ui()
     
     def _show_setup_ui(self):
-        """First-time Master Password setup."""
+        """First-time Master Password setup with strict enforcement."""
         for widget in self.container.winfo_children():
             widget.destroy()
             
         ctk.CTkLabel(
             self.container, text="🛡️ Initial Setup",
             font=ctk.CTkFont(size=20, weight="bold")
-        ).pack(pady=(30, 10))
+        ).pack(pady=(20, 5))
         
         ctk.CTkLabel(
-            self.container, text="Create your recovery master password.\n(Required for initial setup)",
+            self.container, text="Create a strong, unique master password.\n(Minimum 12 characters + complexity)",
             text_color="gray", font=ctk.CTkFont(size=12)
-        ).pack(pady=(0, 20))
+        ).pack(pady=(0, 15))
         
         self.pass_entry = ctk.CTkEntry(self.container, show="•", width=300, placeholder_text="Master Password")
-        self.pass_entry.pack(pady=10)
+        self.pass_entry.pack(pady=5)
         
         self.confirm_entry = ctk.CTkEntry(self.container, show="•", width=300, placeholder_text="Confirm Password")
-        self.confirm_entry.pack(pady=10)
+        self.confirm_entry.pack(pady=5)
         
         self.strength_meter = StrengthMeter(self.container)
-        self.strength_meter.pack(pady=15, padx=50, fill="x")
-        self.pass_entry.bind("<KeyRelease>", lambda e: self.strength_meter.update_strength(self.pass_entry.get()))
+        self.strength_meter.pack(pady=10, padx=50, fill="x")
+        
+        # Security Checklist
+        checklist_frame = ctk.CTkFrame(self.container, fg_color="transparent")
+        checklist_frame.pack(pady=10, padx=50, fill="x")
+        
+        self.check_labels = {
+            "length": self._create_check_item(checklist_frame, "At least 12 characters"),
+            "uppercase": self._create_check_item(checklist_frame, "Uppercase letter"),
+            "lowercase": self._create_check_item(checklist_frame, "Lowercase letter"),
+            "number": self._create_check_item(checklist_frame, "Number (0-9)"),
+            "symbol": self._create_check_item(checklist_frame, "Special character (!@#$)"),
+            "strength": self._create_check_item(checklist_frame, "Overall Strength: Good+"),
+            "match": self._create_check_item(checklist_frame, "Passwords match")
+        }
+        
+        def _on_input_change(e):
+            pwd = self.pass_entry.get()
+            confirm = self.confirm_entry.get()
+            
+            results = PasswordValidator.validate(pwd)
+            results['match'] = (pwd == confirm and pwd != "")
+            
+            # Update Strength Meter
+            self.strength_meter.update_strength(results['score'], results['strength_label'])
+            
+            # Update Checklist
+            for key, (label, icon) in self.check_labels.items():
+                if results[key]:
+                    icon.configure(text="✅", text_color="#2ecc71")
+                    label.configure(text_color="white")
+                else:
+                    icon.configure(text="❌", text_color="#e74c3c")
+                    label.configure(text_color="gray")
+            
+            # Enable/Disable button
+            if results['is_valid'] and results['match']:
+                self.setup_btn.configure(state="normal")
+                self.error_label.configure(text="")
+            else:
+                self.setup_btn.configure(state="disabled")
+
+        self.pass_entry.bind("<KeyRelease>", _on_input_change)
+        self.confirm_entry.bind("<KeyRelease>", _on_input_change)
         
         self.setup_btn = ctk.CTkButton(
             self.container, text="Create Vault",
-            command=self._handle_setup, height=40
+            command=self._handle_setup, height=40,
+            state="disabled"
         )
-        self.setup_btn.pack(pady=20)
+        self.setup_btn.pack(pady=15)
         
         self.error_label = ctk.CTkLabel(self.container, text="", text_color="#e74c3c")
         self.error_label.pack()
+
+    def _create_check_item(self, parent, text):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.pack(fill="x", pady=1)
+        
+        icon = ctk.CTkLabel(f, text="❌", width=20, text_color="#e74c3c")
+        icon.pack(side="left")
+        
+        label = ctk.CTkLabel(f, text=text, font=ctk.CTkFont(size=11), text_color="gray")
+        label.pack(side="left", padx=5)
+        
+        return (label, icon)
 
     def _show_totp_login_ui(self):
         """Standard daily TOTP login."""

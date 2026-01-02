@@ -1,34 +1,36 @@
-# Crypto Password Manager & Key Generator
+# Crypto Password Manager & Key Generator - Master Implementation Plan
 
-A secure, feature-rich password manager and cryptographic key generator built with Python, featuring an encrypted SQLite database and a modern GUI interface.
+This document is the single source of truth for the CryptoPass project architecture, completed milestones, and the future security roadmap.
 
-## Architecture Overview
+## 🏛️ Architecture Overview
 
 ```mermaid
 graph TB
     subgraph GUI["GUI Layer (CustomTkinter)"]
         Login[Login Screen]
         Vault[Password Vault]
+        CertVault[Key & Cert Vault]
         PassGen[Password Generator]
         KeyGen[Key Generator]
-        Settings[Settings]
+        Stats[Stats Dashboard]
     end
     
     subgraph Core["Core Logic"]
         PassService[Password Service]
         KeyService[Key Service]
         AuthService[Auth Service]
+        CertParser[X.509 Parser]
     end
     
     subgraph Security["Security Layer"]
-        Encryption[Encryption Module]
-        KeyDerivation[Key Derivation]
-        SecureMemory[Secure Memory / Zeroing]
-        Mnemonic[Recovery Mnemonic]
+        Encryption[AES-256-GCM Module]
+        KeyDerivation[Argon2id KDF]
+        SecureMemory[bytearray Zeroing]
+        Mnemonic[BIP-39 Recovery]
     end
     
     subgraph Data["Data Layer"]
-        DB[(SQLCipher Full DB Encryption)]
+        DB[(SQLCipher / Encrypted SQLite)]
     end
     
     GUI --> Core
@@ -39,364 +41,80 @@ graph TB
 
 ---
 
-## Proposed Changes
+## ✅ Milestone 1: Core Foundation & Certificate Vault (Completed)
 
-### Project Structure
+### 1. Stability & Infrastructure Fixes
+- **Thread Recovery**: Replaced unsafe `threading.Timer` with `self.after` in `gui/app.py`, resolving `sqlite3.ProgrammingError` and `TclError`.
+- **Database Resilience**: Enabled `check_same_thread=False` for SQLite and updated schema to support certificates.
+- **UI Logic**: Standardized `StrengthMeter` and `CTkImage` rendering paths.
+- **KeyGen Fix**: Resolved `AttributeError` in `KeyGenFrame` initialization.
 
-```
-d:\pass\
-├── main.py                 # Application entry point
-├── requirements.txt        # Dependencies
-├── config.py              # Configuration constants
-│
-├── core/
-│   ├── __init__.py
-│   ├── encryption.py      # AES-256-GCM (Authenticated Encryption)
-│   ├── key_derivation.py  # Argon2id + Salt
-│   ├── secure_memory.py   # bytearray zeroing utilities
-│   └── mnemonic.py        # BIP-39 recovery phrase generation
-│
-├── database/
-│   ├── __init__.py
-│   ├── db_manager.py      # SQLCipher integration
-│   └── models.py          # Data models
-│
-├── generators/
-│   ├── __init__.py
-│   ├── password_generator.py  # All password types
-│   └── key_generator.py       # All cryptographic keys
-│
-├── gui/
-│   ├── __init__.py
-│   ├── app.py             # Main application window
-│   ├── login_frame.py     # Master password login
-│   ├── vault_frame.py     # Password vault view
-│   ├── password_gen_frame.py  # Password generator UI
-│   ├── key_gen_frame.py   # Key generator UI
-│   ├── settings_frame.py  # Settings panel
-│   └── components/
-│       ├── __init__.py
-│       ├── strength_meter.py  # Password strength indicator
-│       └── entry_card.py      # Password entry display card
-│
-└── utils/
-    ├── __init__.py
-    ├── clipboard.py       # Clipboard operations with auto-clear
-    └── validators.py      # Input validation
-```
+### 2. Certificate Vault & Key Management
+- **Detailed Parsing**: Implemented `KeyGenerator.parse_certificate()` to extract Subject, Issuer, and Expiry from PEM files.
+- **Enhanced Storage**: Updated `crypto_keys` table to store encrypted metadata and expiration timestamps.
+- **Import/Export**: Added GUI support for importing external `.pem` certificates into the vault.
+- **Dedicated UI**: Launched the **📜 Key Vault** tab for specialized management of cryptographic secrets.
+
+### 3. Private Key Privacy & UI Standardisation (Implemented)
+- **Masking Toggles**: All private keys in the Generator preview and Vault detail view are now masked by default. Added "Show/Hide" toggles.
+- **Labeling Standard**: Standardized public/private labeling to prevent confusion.
+- **Copy Protection**: Verified that "Copy" retrieves raw data even when masked.
+- **Dedicated UI**: Launched the **📜 Key Vault** tab for specialized management of cryptographic secrets.
 
 ---
 
-### Security Module
+## 🚀 Milestone 2: Advanced Security & MFA Roadmap
 
-#### [NEW] [encryption.py](file:///d:/pass/core/encryption.py)
-- **AES-GCM Authenticated Encryption** (superior to Fernet CBC+HMAC)
-- Transparently handles IV/Nonce and Authentication Tag
-- No additional HMAC layer needed as it's built-in
+This phase transitions the app into a tiered, multi-factor security environment based on OWASP best practices.
 
-#### [NEW] [secure_memory.py](file:///d:/pass/core/secure_memory.py)
-- Use `bytearray` for all sensitive key storage
-- **Zero-out memory** using `memset`-style approach after use
-- Prevent strings from being interned in Python's memory pool
+### 1. 🔐 Tiered Authentication Model
 
-#### [NEW] [mnemonic.py](file:///d:/pass/core/mnemonic.py)
-- Generate 24-word recovery phrase (BIP-39)
-- Derive Master Seed from mnemonic
-- Ultimate recovery if TOTP/Password both fail
+We are moving to a dual-password system to balance security and usability.
 
----
+#### **Master Password (MP) - "The Root Key"**
+- **Purpose**: Required for setup, changing security settings, and emergency recovery.
+- **Security**: Never stored. Derives the **Master Key Encryption Key (MKEK)** via Argon2id.
 
-### Database Layer
+#### **Login Password (LP) + TOTP - "Daily Access"**
+- **Purpose**: Convenient daily unlock. Requires both a valid password and a 6-digit TOTP code.
+- **Security**: Derives a **Login KEK**. Access is granted if the combination of factors unseals the session-specific key.
 
-#### [NEW] [db_manager.py](file:///d:/pass/database/db_manager.py)
-- **SQLCipher 4** Integration: Full transparent database-level encryption
-- Header MAC verification
-- AES-256-GCM page encryption
-- Database file is completely unreadable (random binary data) without the key
-- Native secure delete (overwrites deleted data)
+### 2. 🛡️ Urgent Phase: Security Enforcement & TOTP Verification - v1.2.0 (Completed)
 
----
+As per latest requirements, we have implemented a strict enforcement layer:
 
-### Password Generation Module
+#### **Secure Password Checklist (Enforced)**
+Before an MP or LP can be saved or changed, it must pass:
+- **Minimum Length**: 12 characters.
+- **Complexity**: Uppercase, lowercase, number, and special character.
+- **Entropy Check**: Must score at least "Good" (50+) on the internal `StrengthMeter` (Excellent tier rewarded for 16+ chars).
+- **Checklist UI**: Live visual feedback; "Save" is disabled until all criteria are met.
 
-#### [NEW] [password_generator.py](file:///d:/pass/generators/password_generator.py)
-
-| Type | Description | Example |
-|------|-------------|---------|
-| **Standard** | Fully customizable character sets | `K#9mX$pL2@nQ` |
-| **Passphrase** | Word-based (EFF wordlist) | `correct-horse-battery-staple` |
-| **PIN** | Numeric only (4-12 digits) | `847291` |
-| **Memorable** | Pronounceable combinations | `Brimlock42$` |
-| **Pattern** | User-defined pattern | `Cvcc-9999-ccvc` |
-| **Hex** | Hexadecimal string | `a3f7c2b1...` |
-
-**Character Set Options (for Standard passwords):**
-
-| Option | Characters | Toggle |
-|--------|------------|--------|
-| Uppercase | `A-Z` | ☑️ |
-| Lowercase | `a-z` | ☑️ |
-| Numbers | `0-9` | ☑️ |
-| Symbols | `!@#$%^&*()_+-=[]{}` | ☑️ |
-| Brackets | `()[]{}` | ☐ |
-| Custom | User-defined set | ☐ |
-
-**Additional Options:**
-- **Length slider**: 8-128 characters
-- **Minimum counts**: Require at least N uppercase, N numbers, etc.
-- **Similar char randomization**: Randomly swap 1+ similar chars (0↔O, 1↔l↔I) for extra entropy
-- **Start with letter**: For systems requiring letter-first passwords
-
-
+#### **Mandatory TOTP Verification & Resilient Sealing**
+TOTP setup now follows a mandatory verification loop and uses **hex-encoding** for the master key wrapper to ensure cryptographic stability (Resilient unsealing fallback for v1.1.0 data).
 
 ---
 
-### Key Generation Module
+## 🛠️ Implementation Backlog (Prioritized)
 
-#### [NEW] [key_generator.py](file:///d:/pass/generators/key_generator.py)
+### Phase A: Security Refactor (High Priority)
+- [x] **Password Validator**: Implemented `utils.validators.PasswordValidator`.
+- [x] **Enforced Checklist UI**: Updated `LoginFrame` with live checklist.
+- [x] **TOTP Verification Loop**: Forced code verification in setup dialog.
+- [ ] **Dual Passwords**: Update `DatabaseManager` for Master vs Login hashes.
+- [ ] **Full DB Encryption**: Transition to **SQLCipher** for total confidentiality.
 
-> [!NOTE]
-> Only cryptographically secure algorithms with strong defaults are included.
-
-| Key Type | Library | Sizes/Options | Notes |
-|----------|---------|---------------|-------|
-| **RSA** | `cryptography` | 3072, 4096 bits only | 2048 removed (weak for long-term use) |
-| **Ed25519** | `cryptography` | Fixed 256-bit | Modern, fast, highly secure |
-| **AES** | `cryptography` | 256-bit only | GCM mode for authenticated encryption |
-| **SSH Keys** | `cryptography` | Ed25519 (default), RSA-4096 | OpenSSH format export |
-| **X.509 Cert** | `cryptography` | Self-signed with SHA-384/512 | RSA-4096 or Ed25519 backing |
-| **HMAC** | `cryptography` | SHA-256, SHA-384, SHA-512 | For message authentication |
-| **ChaCha20-Poly1305** | `cryptography` | 256-bit | Authenticated encryption alternative to AES |
-
-**Removed (Insecure/Deprecated):**
-- ~~ECDSA with NIST curves~~ (potential backdoor concerns, Ed25519 preferred)
-- ~~RSA-2048~~ (insufficient for long-term security)
-- ~~AES-128/192~~ (256-bit is standard for high security)
-
----
-
-### GUI Application
-
-#### [NEW] [app.py](file:///d:/pass/gui/app.py)
-- **CustomTkinter** for modern, dark-themed UI
-- **Tabbed interface** with 4 main tabs
-- Session timeout (configurable, default 5 min)
-
-#### Layout Design:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  🔐 CryptoPass                               [Lock] [Settings]  │
-├─────────────────────────────────────────────────────────────────┤
-│  [ Vault ]  [ Generator ]  [ Keys ]  [ Stats ]                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────────┬───────────────────────────────────┐   │
-│  │  PASSWORD LIST      │  DETAILS / GENERATOR PANEL        │   │
-│  │  ───────────────    │  ─────────────────────────────    │   │
-│  │  🔍 Search...       │                                   │   │
-│  │                     │  (Shows details of selected item  │   │
-│  │  📧 Gmail           │   OR generator controls based     │   │
-│  │  🏦 Bank Account    │   on active tab)                  │   │
-│  │  🐙 GitHub          │                                   │   │
-│  │  💼 Work VPN        │                                   │   │
-│  │                     │                                   │   │
-│  │  [+ Add New]        │                                   │   │
-│  └─────────────────────┴───────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Tab Breakdown:
-
-| Tab | Left Panel | Right Panel |
-|-----|------------|-------------|
-| **Vault** | Password list with search | Selected entry details (view/edit/copy) |
-| **Generator** | Quick generation options | Password preview, strength meter, save |
-| **Keys** | Generated keys list | Key details, export options |
-| **Stats** | Overview metrics | Charts: password age, strength distribution |
-
-#### GUI Features:
-1. **Login Screen**: Master password entry with strength indicator
-2. **Vault Tab**: 
-   - Left: Searchable password list with categories
-   - Right: Entry details (title, username, password, URL, notes)
-   - Copy to clipboard (auto-clear after 30s)
-   - Show/hide password toggle
-3. **Generator Tab**:
-   - Left: Password type selector, quick presets
-   - Right: Character options, length slider, preview, strength meter
-4. **Keys Tab**:
-   - Left: Saved keys list
-   - Right: Key type selection, generate, export (PEM/OpenSSH)
-5. **Stats Tab**:
-   - Password age analysis (old passwords needing rotation)
-   - Strength distribution chart
-   - Duplicate/weak password warnings
+### Phase B: Session & Protections (Medium)
+- [ ] **Easy Login Timer**: Configurable session window (5 min to 24 hours).
+- [ ] **Auto-Lock**: Implement triggers for system sleep and global inactivity.
+- [ ] **Audit Logging**: Local, encrypted log of all vault modifications and login attempts.
 
 ---
 
 ## Security Measures
 
 > [!IMPORTANT]
-> **Critical Security Features**
-> - Master password never stored in plaintext
-> - All vault data encrypted with AES-256 via Fernet
-> - Argon2id for password hashing (resistant to GPU attacks)
-> - Clipboard auto-clears after configurable timeout
-> - Session auto-locks after inactivity
-> - Secure random number generation via `secrets` module
-
----
-
-## Dependencies
-
-```txt
-customtkinter>=5.2.0
-cryptography>=41.0.0
-argon2-cffi>=23.1.0
-pyperclip>=1.8.2
-```
-
----
-
-## Verification Plan
-
-### Automated Testing
-
-1. **Run the application**:
-   ```powershell
-   cd d:\pass
-   python main.py
-   ```
-
-2. **Test password generation** (all types work correctly):
-   - Generate each password type
-   - Verify randomness and format
-
-3. **Test key generation** (all key types):
-   - Generate RSA, Ed25519, AES, SSH keys
-   - Verify key format and exportability
-
-### Manual Verification
-
-1. **First-time setup**:
-   - Launch app → Create master password
-   - Verify database file created with encryption
-
-2. **Password vault operations**:
-   - Add new password entry
-   - Edit existing entry
-   - Delete entry
-   - Search functionality
-   - Copy to clipboard (verify auto-clear)
-
-3. **Security testing**:
-   - Close app → Reopen → Verify login required
-   - Idle timeout → Verify auto-lock
-   - Try wrong master password → Verify rejection
-
-4. **Database encryption verification**:
-   - Open database file in SQLite browser
-   - Verify all sensitive fields are encrypted (unreadable)
-
----
-
-## User Review Required
-
-> [!IMPORTANT]
-> **Changes made based on your feedback:**
-> - ✅ Removed insecure key types: ECDSA (NIST curves), RSA-2048, AES-128/192
-> - ✅ Added detailed password character set options with toggles
-> - ✅ Keeping CustomTkinter for modern dark-themed GUI
->
-> Please confirm the plan looks good to proceed with implementation.
-
----
-
-## Enhancement: TOTP Authenticator Unlock
-
-### Overview
-
-Add TOTP (Time-based One-Time Password) as the **primary unlock method** with master password as emergency fallback.
-
-```mermaid
-graph TB
-    A[Launch App] --> B{Login Screen}
-    B -->|TOTP Code| C[Primary Login]
-    C --> D[Full Access]
-    B -->|Master Password| E[Fallback Login]
-    E --> F[Force Password Change]
-    F --> G[Set New Password + Re-setup TOTP]
-    G --> D
-```
-
-### How It Works
-
-1. **Setup Phase** (first-time or in Settings):
-   - Generate TOTP secret (32-byte random)
-   - Display QR code for Google/Microsoft Authenticator
-   - User scans and confirms with a test code
-   - Secret stored **encrypted**, backup key created
-
-2. **Normal Daily Login (TOTP - Primary)**:
-   - User enters 6-digit TOTP code from authenticator app
-   - App verifies code, unlocks vault with stored backup key
-   - **Full access** to all features
-
-3. **Emergency Login (Master Password - Fallback)**:
-   - User uses master password (verified against stored hash).
-   - **Verification Prompt**: App asks "Did you lose your phone or just temporary access?"
-   - **Case: Lost Phone**:
-     - Forces immediate password change.
-     - Automatically clears old TOTP secret.
-     - User must re-setup TOTP before next login.
-   - **Case: Temporary Loss**:
-     - Allows access with existing password.
-     - **Persistent Warning**: A notice remains visible in the header until password is changed.
-     - Frequent reminders during session every time the vault is unlocked.
-   - **Catastrophic Failure**: 24-Word Recovery Mnemonic (BIP-39) remains the ultimate fallback.
-
-4. **Security Model**:
-
-| Login Method | Use Case | Access Level | Post-Login |
-|--------------|----------|--------------|------------|
-| **TOTP Code** | Daily use | Full Access | Normal |
-| Master Password | Lost Phone | Recovery Access | **Forced Reset + TOTP Clear** |
-| Master Password | Temp Access | Limited Access | **Persistent Warning** |
-| Recovery Phrase | Absolute Failure | Full Recovery | **Full App Reset** |
-
-### Database Changes
-
-```sql
-ALTER TABLE master_config ADD COLUMN totp_secret TEXT;  -- Encrypted
-ALTER TABLE master_config ADD COLUMN backup_key BLOB;   -- Encrypted with TOTP-derived key
-ALTER TABLE master_config ADD COLUMN totp_enabled INTEGER DEFAULT 0;
-```
-
-### New Dependencies
-
-```txt
-pyotp>=2.9.0    # TOTP generation/verification
-qrcode>=7.4.2   # QR code generation for authenticator setup
-pillow>=10.0.0  # Image handling for QR display
-```
-
-### Security Considerations
-
-> [!IMPORTANT]
-> **Master Password is the recovery mechanism**, not primary authentication.
-> - TOTP login (Primary) allows standard daily access.
-> - Master Password login (Fallback) triggers recovery procedures (Reset or Warning).
-> - TOTP secret is initially set up after the first Master Password creation.
-> - Recovery Mnemonic should be stored offline (physical paper).
-
-### Files to Modify
-
-| File | Changes |
-|------|---------|
-| [db_manager.py](file:///d:/pass/database/db_manager.py) | Add TOTP columns, backup key storage |
-| [login_frame.py](file:///d:/pass/gui/login_frame.py) | Add "Use Authenticator" button |
-| [app.py](file:///d:/pass/gui/app.py) | Handle TOTP login flow, forced password change |
-| [settings_frame.py](file:///d:/pass/gui/settings_frame.py) | TOTP setup with QR code |
-| NEW: [totp_manager.py](file:///d:/pass/core/totp_manager.py) | TOTP generation/verification |
+> **Core Security Principles**
+> - **Zero-Knowledge**: No secrets ever leave the device in a readable format.
+> - **Authenticated Encryption**: Standardizing on **AES-256-GCM**.
+> - **Memory Safety**: `bytearray` usage and manual memory zeroing.

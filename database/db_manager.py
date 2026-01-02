@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import json
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pathlib import Path
@@ -22,7 +23,7 @@ class DatabaseManager:
     
     def connect(self):
         """Establish database connection."""
-        self._conn = sqlite3.connect(str(DB_FILE))
+        self._conn = sqlite3.connect(str(DB_FILE), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._init_tables()
     
@@ -75,6 +76,8 @@ class DatabaseManager:
                 public_key BLOB,
                 private_key BLOB,
                 key_size INTEGER,
+                expiry_date TIMESTAMP,
+                metadata BLOB,              -- Encrypted JSON
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes BLOB
             )
@@ -183,40 +186,82 @@ class DatabaseManager:
     # ============== Crypto Key Operations ==============
 
     def add_crypto_key(self, name: str, key_type: str, public_key: str = "",
-                       private_key: str = "", key_size: int = 0, notes: str = "") -> int:
+                       private_key: str = "", key_size: int = 0, 
+                       expiry_date: Optional[str] = None,
+                       metadata: Optional[Dict] = None,
+                       notes: str = "") -> int:
         cursor = self._conn.cursor()
+        
+        metadata_json = json.dumps(metadata) if metadata else None
+        
         cursor.execute('''
-            INSERT INTO crypto_keys (name, key_type, public_key, private_key, key_size, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO crypto_keys (name, key_type, public_key, private_key, key_size, expiry_date, metadata, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             self._encrypt(name),
             key_type,
             self._encrypt(public_key),
             self._encrypt(private_key),
             key_size,
+            expiry_date,
+            self._encrypt(metadata_json),
             self._encrypt(notes)
         ))
         self._conn.commit()
         return cursor.lastrowid
 
+    def get_crypto_key(self, key_id: int) -> Optional[Dict[str, Any]]:
+        cursor = self._conn.cursor()
+        cursor.execute('SELECT * FROM crypto_keys WHERE id = ?', (key_id,))
+        row = cursor.fetchone()
+        if not row: return None
+        
+        try:
+            metadata_raw = self._decrypt(row['metadata'])
+            metadata = json.loads(metadata_raw) if metadata_raw else None
+            
+            return {
+                'id': row['id'],
+                'name': self._decrypt(row['name']),
+                'key_type': row['key_type'],
+                'public_key': self._decrypt(row['public_key']),
+                'private_key': self._decrypt(row['private_key']),
+                'key_size': row['key_size'],
+                'expiry_date': row['expiry_date'],
+                'metadata': metadata,
+                'notes': self._decrypt(row['notes']),
+                'created_at': row['created_at']
+            }
+        except Exception:
+            return None
+
     def get_all_crypto_keys(self) -> List[Dict[str, Any]]:
         cursor = self._conn.cursor()
-        cursor.execute('SELECT * FROM crypto_keys')
+        cursor.execute('SELECT * FROM crypto_keys ORDER BY id DESC')
         rows = cursor.fetchall()
         result = []
         for row in rows:
             try:
+                metadata_raw = self._decrypt(row['metadata'])
+                metadata = json.loads(metadata_raw) if metadata_raw else None
+                
                 result.append({
                     'id': row['id'],
                     'name': self._decrypt(row['name']),
                     'key_type': row['key_type'],
                     'public_key': self._decrypt(row['public_key']),
                     'private_key': self._decrypt(row['private_key']),
-                    'key_size': row['key_size']
+                    'key_size': row['key_size'],
+                    'expiry_date': row['expiry_date'],
+                    'metadata': metadata
                 })
             except Exception:
                 continue
         return result
+
+    def delete_crypto_key(self, key_id: int):
+        self._conn.execute('DELETE FROM crypto_keys WHERE id = ?', (key_id,))
+        self._conn.commit()
 
     def get_password_stats(self) -> Dict[str, Any]:
         passwords = self.get_all_passwords()
