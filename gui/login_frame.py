@@ -1,5 +1,5 @@
 """
-Login and recovery interface for CryptoPass.
+Login and recovery interface for BitMarrow.
 Supports TOTP primary login and Master Password emergency fallback.
 """
 import customtkinter as ctk

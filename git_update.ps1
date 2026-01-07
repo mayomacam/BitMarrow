@@ -5,7 +5,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     exit
 }
 
-Write-Host "=== CryptoPass Git Updater ===" -ForegroundColor Cyan
+Write-Host "=== BitMarrow Git Updater ===" -ForegroundColor Cyan
 Write-Host "Checking Status..." -ForegroundColor Gray
 git status
 

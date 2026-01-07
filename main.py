@@ -1,5 +1,5 @@
 """
-CryptoPass - Secure Password Manager & Key Generator
+BitMarrow - Secure Password Manager & Key Generator
 """
 import sys
 import os

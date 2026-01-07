@@ -11,7 +11,7 @@ from config import DATA_DIR, DB_FILE
 from core.encryption import EncryptionManager
 from utils.audit_logger import AuditLogger, EVENT_DB_MIGRATION, EVENT_LOGIN_SUCCESS
 
-SERVICE_VAULT = "CryptoPass-Vault"
+SERVICE_VAULT = "BitMarrow-Vault"
 
 
 class DatabaseManager:
@@ -435,7 +435,7 @@ class DatabaseManager:
         # Wait, if we change the master password, we need to unwrap current master key first.
         # Actually, if we change the MASTER password, the master key ITSELF might change 
         # OR we just change the password that derives it.
-        # In CryptoPass, the Master Password DERIVES the Master Key.
+        # In BitMarrow, the Master Password DERIVES the Master Key.
         # So changing the Master Password = CHANGING the Master Key.
         
         # This requires re-encrypting everything.

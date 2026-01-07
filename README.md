@@ -1,4 +1,4 @@
-# 🔐 CryptoPass
+# 🔐 BitMarrow
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
@@ -6,14 +6,14 @@
 ![Security](https://img.shields.io/badge/Encryption-AES--256--GCM-green)
 ![Version](https://img.shields.io/badge/release-v4.0.0-red)
 
-**CryptoPass** is an advanced, local-first password manager and cryptographic suite designed for high-security environments. Distinct from cloud-based alternatives, it operates entirely offline with a zero-knowledge architecture, ensuring your secrets are decrypted **only in volatile memory** and never touch your disk.
+**BitMarrow** is an advanced, local-first password manager and cryptographic suite designed for high-security environments. Distinct from cloud-based alternatives, it operates entirely offline with a zero-knowledge architecture, ensuring your secrets are decrypted **only in volatile memory** and never touch your disk.
 
 ---
 
 ## 🛡️ Critical Security Features (v4.0.0)
 
 ### 🧠 RAM-Only Architecture
-Unlike standard password managers that may leave temporary files, CryptoPass v4.0 uses **SQLite Deserialization** to decrypt your vault directly from the encrypted container into RAM.
+Unlike standard password managers that may leave temporary files, BitMarrow v4.0 uses **SQLite Deserialization** to decrypt your vault directly from the encrypted container into RAM.
 - **No Temporary Files**: Unencrypted data never touches the filesystem (not even in `%TEMP%`).
 - **Aggressive Cleanup**: Triggered garbage collection (`gc.collect`) on vault lock/exit.
 
@@ -62,8 +62,8 @@ Unlike standard password managers that may leave temporary files, CryptoPass v4.
 ### Manual Install
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/yourusername/cryptopass.git
-   cd cryptopass
+   git clone https://github.com/yourusername/bitmarrow.git
+   cd bitmarrow
    ```
 
 2. **Create Virtual Environment**
@@ -101,7 +101,7 @@ Moving to a new PC?
 1. Go to **Settings > Migration**.
 2. Generate a **Transfer Key**.
 3. Copy the `vault.db` (and `blobs.db`) to the new machine.
-4. On the new machine, launch CryptoPass. It will detect the hardware mismatch and ask for the Transfer Key.
+4. On the new machine, launch BitMarrow. It will detect the hardware mismatch and ask for the Transfer Key.
 
 ---
 
@@ -110,14 +110,14 @@ To create a standalone `.exe` for Windows:
 
 ```bash
 pip install pyinstaller
-pyinstaller --noconsole --onefile --icon=assets/icon.ico --name "CryptoPass" main.py
+pyinstaller --noconsole --onefile --icon=assets/icon.ico --name "BitMarrow" main.py
 ```
 *(No separate installation required for end-users)*
 
 ---
 
 ## 📄 License
-**CryptoPass** is Free Software licensed under the **GNU General Public License v3.0 (GPLv3)**.
+**BitMarrow** is Free Software licensed under the **GNU General Public License v3.0 (GPLv3)**.
 
 You are free to use, modify, and distribute this software, but **all derivative works must remain open-source**. This ensures the tool remains auditable and trustworthy for the community.
 

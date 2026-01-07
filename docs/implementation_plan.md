@@ -1,6 +1,6 @@
-# Crypto Password Manager & Key Generator - Master Implementation Plan
+# BitMarrowword Manager & Key Generator - Master Implementation Plan
 
-This document is the single source of truth for the CryptoPass project architecture, completed milestones, and the future security roadmap.
+This document is the single source of truth for the BitMarrow project architecture, completed milestones, and the future security roadmap.
 
 ## 🏛️ Architecture Overview
 

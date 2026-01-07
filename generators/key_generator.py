@@ -197,7 +197,7 @@ class KeyGenerator:
             additional_info={"format": "OpenSSH"}
         )
     
-    def _generate_x509(self, common_name: str = "CryptoPass Self-Signed",
+    def _generate_x509(self, common_name: str = "BitMarrow Self-Signed",
                        validity_days: int = 365,
                        use_ed25519: bool = True) -> KeyResult:
         """
