@@ -1,11 +1,11 @@
 """
-Configuration constants for BitMarrow application.
+Configuration constants for CryptoPass application.
 """
 import os
 from pathlib import Path
 
 # Application Info
-APP_NAME = "BitMarrow"
+APP_NAME = "CryptoPass"
 APP_VERSION = "4.0.0"
 
 # Paths

@@ -1,4 +1,4 @@
-# BitMarrow - Implementation Complete ✅
+# CryptoPass - Implementation Complete ✅
 
 A secure password manager and cryptographic key generator with encrypted SQLite storage and modern CustomTkinter GUI.
 

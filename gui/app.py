@@ -14,7 +14,7 @@ from typing import Optional
 from config import APP_NAME, SESSION_TIMEOUT_MINUTES, BLOB_FILE, DATA_DIR
 from core.encryption import EncryptionManager
 
-SERVICE_VAULT = "BitMarrow-Vault"
+SERVICE_VAULT = "CryptoPass-Vault"
 from core.key_derivation import KeyDerivation
 from core.totp_manager import TOTPManager
 from core.mnemonic import MnemonicManager
@@ -35,7 +35,7 @@ from gui.settings_frame import SettingsFrame
 from utils.clipboard import ClipboardManager
 
 
-class BitMarrowApp(ctk.CTk):
+class CryptoPassApp(ctk.CTk):
     """Main application window with secure recovery flow."""
     
     def __init__(self):
@@ -806,7 +806,7 @@ class BitMarrowApp(ctk.CTk):
         self.destroy()
 
 def main():
-    app = BitMarrowApp()
+    app = CryptoPassApp()
     app.mainloop()
 
 if __name__ == "__main__":

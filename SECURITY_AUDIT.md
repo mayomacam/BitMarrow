@@ -1,11 +1,11 @@
-# Security Audit Report for BitMarrow
+# Security Audit Report for CryptoPass
 
 **Date:** 2026-01-07
 **Auditor:** Antigravity (AI Agent)
-**Target:** BitMarrow Application
+**Target:** CryptoPass Application
 
 ## Executive Summary
-The BitMarrow application employs strong cryptographic primitives (AES-256-GCM, Argon2id) and a robust "Defense in Depth" strategy with both full-database and field-level encryption. However, a critical vulnerability was identified where the database is decrypted to a temporary file on the disk during runtime, posing a significant data leakage risk.
+The CryptoPass application employs strong cryptographic primitives (AES-256-GCM, Argon2id) and a robust "Defense in Depth" strategy with both full-database and field-level encryption. However, a critical vulnerability was identified where the database is decrypted to a temporary file on the disk during runtime, posing a significant data leakage risk.
 
 ## Findings
 

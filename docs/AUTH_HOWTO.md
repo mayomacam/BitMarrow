@@ -1,9 +1,9 @@
-# BitMarrow Authentication Architecture
+# CryptoPass Authentication Architecture
 
 This document details how authorization and encryption keys are handled in various scenarios.
 
 ## 1. Master Key (Root of Trust)
-Everything in BitMarrow relies on a **32-byte Master Key**. This key is never stored in plain text. It is used to:
+Everything in CryptoPass relies on a **32-byte Master Key**. This key is never stored in plain text. It is used to:
 - Encrypt/Decrypt the "Sealed Vault" (the `vault.db` file).
 - Initialize the `EncryptionManager` for field-level encryption (historical/migration).
 

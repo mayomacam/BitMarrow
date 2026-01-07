@@ -21,7 +21,7 @@ class Sidebar(ctk.CTkFrame):
     def _create_widgets(self):
         # Logo / Title
         logo_label = ctk.CTkLabel(
-            self, text="🔐 BitMarrow",
+            self, text="🔐 CryptoPass",
             font=ctk.CTkFont(size=20, weight="bold"),
             text_color=COLOR_ACCENT
         )

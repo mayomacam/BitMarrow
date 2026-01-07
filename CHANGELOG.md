@@ -102,5 +102,5 @@ All notable changes to this project will be documented in this file.
 ---
 
 ## [1.0.0] - 2026-01-01
-- Initial release of BitMarrow.
+- Initial release of CryptoPass.
 - Core features: Password Vault, Password Generator, GCM Encryption, TOTP & Mnemonic recovery.
