@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -144,4 +143,4 @@ All notable changes to this project will be documented in this file.
 ## [1.0.0] - 2026-01-01
 - Initial release of CryptoPass.
 - Core features: Password Vault, Password Generator, GCM Encryption, TOTP & Mnemonic recovery.
->>>>>>> 6b91baecfa0930c653d444e61194cb7690e1fceb
+
