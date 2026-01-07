@@ -186,6 +186,8 @@ class BitMarrowApp(ctk.CTk):
         elif integrity_status in ["NEW_DEVICE", "MISMATCH"]:
             # Trigger Migration / Mnemonic Challenge
             initial_mode = "MIGRATION"
+        elif integrity_status == "LOCKED":
+            pass # Proceed to normal login to unlock
 
         has_setup = self.db.has_master_password()
         has_everyday = self.db.get_everyday_config() is not None

@@ -122,6 +122,16 @@ class VaultFrame(ctk.CTkFrame):
         self._create_field("url", "🌐 Website / URL")
         self._create_field("category", "📁 Folder / Category")
         self._create_field("notes", "📝 Notes", is_textbox=True)
+        
+        # Timestamps
+        self.time_frame = ctk.CTkFrame(self.fields_frame, fg_color="transparent")
+        self.time_frame.pack(fill="x", pady=20)
+        
+        self.created_label = ctk.CTkLabel(self.time_frame, text="", text_color=COLOR_TEXT_DIM, font=ctk.CTkFont(size=11))
+        self.created_label.pack(anchor="w")
+        
+        self.updated_label = ctk.CTkLabel(self.time_frame, text="", text_color=COLOR_TEXT_DIM, font=ctk.CTkFont(size=11))
+        self.updated_label.pack(anchor="w")
     
     def _create_field(self, name: str, label: str, 
                        is_password: bool = False, is_textbox: bool = False):
@@ -275,6 +285,11 @@ class VaultFrame(ctk.CTkFrame):
         self._update_field("url", password.get('url', ''))
         self._update_field("notes", password.get('notes', ''))
         self._update_field("category", password.get('category', ''))
+        
+        created = password.get('created_at', '')
+        updated = password.get('updated_at', '')
+        self.created_label.configure(text=f"Created: {created}")
+        self.updated_label.configure(text=f"Last Modified: {updated}")
         
         self.password_visible = False
         self.field_password.configure(show="•")
