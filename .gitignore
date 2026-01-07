@@ -1,0 +1,26 @@
+# Git Ignore
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Distribution / Build
+dist/
+build/
+*.spec
+
+# Application Data (LEAVE THIS TO PREVENT SENSITIVE DATA LEAKS)
+data/
+vault.db
+*.pem
+*.key
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
