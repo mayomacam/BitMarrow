@@ -14,7 +14,7 @@ from core.secure_memory import zero_memory
 class SessionManager:
     """Handles device-specific session persistence."""
     
-    SERVICE_NAME = "CryptoPass-Session"
+    SERVICE_NAME = "BitMarrow-Session"
     
     def __init__(self):
         self._hardware_id = self._get_hardware_id()

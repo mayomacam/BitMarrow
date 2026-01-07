@@ -1,6 +1,6 @@
 
 """
-CryptoPass - Secure Password Manager & Key Generator
+BitMarrow - Secure Password Manager & Key Generator
 """
 import sys
 import os
@@ -12,18 +12,3 @@ from gui.app import main
 
 if __name__ == "__main__":
     main()
-=======
-"""
-CryptoPass - Secure Password Manager & Key Generator
-"""
-import sys
-import os
-
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from gui.app import main
-
-if __name__ == "__main__":
-    main()
-

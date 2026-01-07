@@ -98,7 +98,7 @@ class KeyGenFrame(ctk.CTkFrame):
         self.x509_options = ctk.CTkFrame(self.options_container, fg_color="transparent")
         ctk.CTkLabel(self.x509_options, text="Common Name (CN)", font=ctk.CTkFont(weight="bold", size=12), text_color=COLOR_TEXT_DIM).pack(anchor="w")
         self.x509_cn = ctk.CTkEntry(self.x509_options, width=300, fg_color=COLOR_BG, border_color="#333333")
-        self.x509_cn.insert(0, "CryptoPass Identity")
+        self.x509_cn.insert(0, "BitMarrow Identity")
         self.x509_cn.pack(anchor="w", pady=5)
         self.x509_ed25519 = ctk.CTkCheckBox(self.x509_options, text="Modern Ed25519 Signature", fg_color=COLOR_ACCENT)
         self.x509_ed25519.select()

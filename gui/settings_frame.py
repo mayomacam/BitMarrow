@@ -1,12 +1,15 @@
 """
 Settings frame for configuring security features like PIN and Master Password.
 """
+import hashlib
+import json
 import customtkinter as ctk
 import os
 from pathlib import Path
 from typing import Optional
 
 from config import COLOR_BG, COLOR_SURFACE, COLOR_ACCENT, COLOR_TEXT, COLOR_TEXT_DIM, DATA_DIR
+from core.encryption import EncryptionManager
 
 class SettingsFrame(ctk.CTkFrame):
     """Settings interface for security and app configuration."""

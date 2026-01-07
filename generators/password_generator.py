@@ -343,7 +343,7 @@ class PasswordGenerator:
             feedback.append("Avoid common sequences like 'abc' or '123'")
 
         # 5. Common Passwords Check
-        common = ["password", "qwerty", "admin123", "welcome", "12345678", "cryptopass"]
+        common = ["password", "qwerty", "admin123", "welcome", "12345678", "BitMarrow"]
         if password.lower() in common:
             score = 10
             feedback.append("This is a very common password")
