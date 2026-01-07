@@ -6,10 +6,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import hashlib
-import json
 from config import COLOR_BG, COLOR_SURFACE, COLOR_ACCENT, COLOR_TEXT, COLOR_TEXT_DIM, DATA_DIR
-from core.encryption import EncryptionManager
 
 class SettingsFrame(ctk.CTkFrame):
     """Settings interface for security and app configuration."""
@@ -113,14 +110,11 @@ class SettingsFrame(ctk.CTkFrame):
         ev_input_frame = ctk.CTkFrame(everyday_container, fg_color="transparent")
         ev_input_frame.pack(fill="x", padx=20, pady=(0, 20))
         
-        self.ev_pass_entry = ctk.CTkEntry(ev_input_frame, placeholder_text="New Everyday Pass", show="•", width=250, height=40)
-        self.ev_pass_entry.pack(pady=(0, 10), anchor="w")
-
-        self.ev_pass_confirm = ctk.CTkEntry(ev_input_frame, placeholder_text="Confirm Everyday Pass", show="•", width=250, height=40)
-        self.ev_pass_confirm.pack(pady=(0, 10), anchor="w")
+        self.ev_pass_entry = ctk.CTkEntry(ev_input_frame, placeholder_text="New Everyday Pass", show="•", width=200, height=40)
+        self.ev_pass_entry.pack(side="left")
         
-        self.save_ev_btn = ctk.CTkButton(ev_input_frame, text="Set Everyday Pass", command=self._handle_save_everyday, width=200, height=40, fg_color=COLOR_ACCENT, text_color="black")
-        self.save_ev_btn.pack(pady=(0, 10), anchor="w")
+        self.save_ev_btn = ctk.CTkButton(ev_input_frame, text="Set Everyday Pass", command=self._handle_save_everyday, width=150, height=40, fg_color=COLOR_ACCENT, text_color="black")
+        self.save_ev_btn.pack(side="left", padx=10)
 
         # --- Quick Unlock PIN Section ---
         pin_container = ctk.CTkFrame(scroll, fg_color=COLOR_SURFACE, corner_radius=15)
@@ -132,19 +126,13 @@ class SettingsFrame(ctk.CTkFrame):
         pin_input_frame = ctk.CTkFrame(pin_container, fg_color="transparent")
         pin_input_frame.pack(fill="x", padx=20, pady=(0, 20))
         
-        self.pin_entry = ctk.CTkEntry(pin_input_frame, placeholder_text="Enter New PIN", show="•", width=250, height=40)
-        self.pin_entry.pack(pady=(0, 10), anchor="w")
-
-        self.pin_confirm = ctk.CTkEntry(pin_input_frame, placeholder_text="Confirm PIN", show="•", width=250, height=40)
-        self.pin_confirm.pack(pady=(0, 10), anchor="w")
+        self.pin_entry = ctk.CTkEntry(pin_input_frame, placeholder_text="Enter PIN", show="•", width=150, height=40)
+        self.pin_entry.pack(side="left")
         
-        btn_frame = ctk.CTkFrame(pin_input_frame, fg_color="transparent")
-        btn_frame.pack(fill="x", anchor="w")
-
-        self.save_pin_btn = ctk.CTkButton(btn_frame, text="Set PIN", command=self._handle_save_pin, width=120, height=40, fg_color=COLOR_ACCENT, text_color="black")
-        self.save_pin_btn.pack(side="left", padx=(0, 10))
+        self.save_pin_btn = ctk.CTkButton(pin_input_frame, text="Set PIN", command=self._handle_save_pin, width=100, height=40, fg_color=COLOR_ACCENT, text_color="black")
+        self.save_pin_btn.pack(side="left", padx=10)
         
-        self.clear_pin_btn = ctk.CTkButton(btn_frame, text="Remove PIN", command=self._handle_clear_pin, width=120, height=40, fg_color="#e74c3c")
+        self.clear_pin_btn = ctk.CTkButton(pin_input_frame, text="Remove PIN", command=self._handle_clear_pin, width=100, height=40, fg_color="#e74c3c")
         self.clear_pin_btn.pack(side="left")
 
         self.info_label = ctk.CTkLabel(self.tab_creds, text="", text_color=COLOR_ACCENT)
@@ -220,12 +208,6 @@ class SettingsFrame(ctk.CTkFrame):
 
     def _handle_save_everyday(self):
         password = self.ev_pass_entry.get().strip()
-        confirm = self.ev_pass_confirm.get().strip()
-        
-        if password != confirm:
-            self.info_label.configure(text="❌ Passwords do not match", text_color="#e74c3c")
-            return
-
         if len(password) < 8:
             self.info_label.configure(text="❌ Everyday password must be at least 8 chars", text_color="#e74c3c")
             return
@@ -245,18 +227,11 @@ class SettingsFrame(ctk.CTkFrame):
             
             self.info_label.configure(text="✅ Everyday Password set!", text_color=COLOR_ACCENT)
             self.ev_pass_entry.delete(0, 'end')
-            self.ev_pass_confirm.delete(0, 'end')
         except Exception as e:
             self.info_label.configure(text=f"❌ Error: {e}", text_color="#e74c3c")
 
     def _handle_save_pin(self):
         pin = self.pin_entry.get().strip()
-        confirm = self.pin_confirm.get().strip()
-
-        if pin != confirm:
-            self.info_label.configure(text="❌ PINs do not match", text_color="#e74c3c")
-            return
-
         if not pin.isdigit() or len(pin) < 4 or len(pin) > 8:
             self.info_label.configure(text="❌ PIN must be 4-8 digits", text_color="#e74c3c")
             return
@@ -268,7 +243,6 @@ class SettingsFrame(ctk.CTkFrame):
             
             self.info_label.configure(text="✅ PIN successfully set!", text_color=COLOR_ACCENT)
             self.pin_entry.delete(0, 'end')
-            self.pin_confirm.delete(0, 'end')
         except Exception as e:
             self.info_label.configure(text=f"❌ Error: {e}", text_color="#e74c3c")
 

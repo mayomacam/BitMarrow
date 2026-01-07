@@ -3,9 +3,6 @@ import os
 import json
 import keyring
 import secrets
-import keyring
-import secrets
-import time
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pathlib import Path
@@ -47,56 +44,16 @@ class DatabaseManager:
              
              # MIGRATION CHECK: If it was plain SQLite, seal it now
              if DB_FILE.exists():
-                 try:
-                     with open(DB_FILE, "rb") as f:
-                         header = f.read(16)
-                     if header.startswith(b"SQLITE"):
-                         # We are file-backed. Must close to seal (Windows Lock Fix).
-                         data = self._conn.serialize() # Grab snapshot
-                         self._conn.close()            # Release file lock
-                         
-                         # Encrypt and Write
-                         encrypted = self._encryption.encrypt_bytes(data)
-                         temp = DB_FILE.with_suffix(".new")
-                         temp.write_bytes(encrypted)
-                         temp.replace(DB_FILE)
-                         
-                         # Re-open in memory
-                         self._conn = sqlite3.connect(":memory:", check_same_thread=False)
-                         self._conn.row_factory = sqlite3.Row
-                         self._conn.deserialize(data)
-                         self._init_tables() # Re-init / ensure tables
-                         
-                         self._audit.log_event("DB_MIGRATION", "Migrated plain vault to full-file encryption")
-                 except Exception as e:
-                     print(f"Migration check failed: {e}")
+                 with open(DB_FILE, "rb") as f:
+                     header = f.read(16)
+                 if header.startswith(b"SQLITE"):
+                     self._seal_db()
+                     self._audit.log_event("DB_MIGRATION", "Migrated plain vault to full-file encryption")
         else:
-             # Check if file is encrypted (not SQLite header)
-             if DB_FILE.exists() and DB_FILE.stat().st_size > 0:
-                 with open(DB_FILE, "rb") as f: header = f.read(16)
-                 if not header.startswith(b"SQLITE"):
-                     # Encrypted file, no key -> LOCKED state
-                     # Encrypted file, no key -> LOCKED state
-                     self._conn = None
-                     return
-
              # Standard connect for initial setup or first login
              self._conn = sqlite3.connect(str(DB_FILE), check_same_thread=False)
              self._conn.row_factory = sqlite3.Row
              self._init_tables()
-    
-    def get_public_salt(self) -> Optional[bytes]:
-        """Reads the unencrypted salt from the database file header."""
-        if not DB_FILE.exists(): return None
-        try:
-            with open(DB_FILE, "rb") as f:
-                header = f.read(36) # 4 bytes magic + 32 bytes salt
-                if header.startswith(b"BMv4"):
-                     if len(header) >= 36:
-                         return header[4:36]
-        except Exception:
-            pass
-        return None
 
     def _open_sealed_db(self):
         """Decrypts the sealed vault into an in-memory database."""
@@ -114,35 +71,26 @@ class DatabaseManager:
             return
 
         # It's encrypted. Decrypt to RAM and deserialize.
-        # It's encrypted. Decrypt to RAM and deserialize.
         try:
-            with open(DB_FILE, "rb") as f:
-                header = f.read(4)
-                if header == b"BMv4":
-                    f.seek(36) # Skip Magic + Salt
-                    encrypted_data = f.read()
-                else:
-                    # Legacy or raw encrypted (v4.0.0 initial migration)
-                    # Try reading from start (no header)
-                    f.seek(0)
-                    encrypted_data = f.read()
-            
+            encrypted_data = DB_FILE.read_bytes()
             decrypted_data = self._encryption.decrypt_bytes(encrypted_data)
             
             # Create in-memory DB
             self._conn = sqlite3.connect(":memory:", check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
             
-            # FAST LOAD: Deserialize
+            # FAST LOAD: Deserialize bytes directly into the connection
+            # This requires Python 3.10+ and a compatible sqlite3 build
             self._conn.deserialize(decrypted_data)
+            
+            # Clear decrypted buffer from generic variable, though python GC handles finding it eventually
             del decrypted_data
             
             self._init_tables()
         except Exception as e:
             print(f"Failed to open sealed DB: {e}")
-            # If decryption fails, we might just be using the wrong key.
-            # Don't raise, just leave self._conn as None so we stay LOCKED
-            self._conn = None
+            # Fallback (shouldn't happen)
+            raise e
 
     def close(self):
         if self._conn:
@@ -164,41 +112,15 @@ class DatabaseManager:
             # Serialize in-memory DB to bytes
             data = self._conn.serialize()
             
-            # Encrypt
+            # Encrypt and write to disk
             encrypted = self._encryption.encrypt_bytes(data)
             
-            # Fetch Salt to write to header
-            salt = b'\x00' * 32 # Default fallback
-            try:
-                cursor = self._conn.execute('SELECT salt FROM master_config')
-                row = cursor.fetchone()
-                if row and row[0]:
-                    salt = row[0]
-            except: pass
-
-            # Write safely using a .tmp file
+            # Write safely using a .tmp file then rename to avoid corruption on crash
+            start_time = datetime.now()
             temp_target = DB_FILE.with_suffix(".new")
-            with open(temp_target, "wb") as f:
-                f.write(b"BMv4") # Magic
-                f.write(salt)    # Public Salt
-                f.write(encrypted) # Encrypted Blob
+            temp_target.write_bytes(encrypted)
+            temp_target.replace(DB_FILE)
             
-            # Robust Retry Logic for Windows File Locking
-            for i in range(5):
-                try:
-                    temp_target.replace(DB_FILE)
-                    break
-                except PermissionError:
-                    if i == 4: raise
-                    time.sleep(0.1 + (i * 0.1))
-                except OSError:
-                    # Fallback for weird Windows states
-                    if DB_FILE.exists():
-                        try: os.unlink(DB_FILE)
-                        except: pass
-                    temp_target.rename(DB_FILE)
-                    break
-                    
         except Exception as e:
             print(f"Failed to seal database: {e}")
     
@@ -346,16 +268,10 @@ class DatabaseManager:
     # ============== Master Config Operations ==============
     
     def has_master_password(self) -> bool:
-        if self._conn is None:
-            # If no connection but file exists and is encrypted, setup is done
-            return DB_FILE.exists() and DB_FILE.stat().st_size > 0
-            
         cursor = self._conn.cursor()
-        try:
-            cursor.execute('SELECT COUNT(*) FROM master_config')
-            return cursor.fetchone()[0] > 0
-        except sqlite3.OperationalError:
-            return False
+        cursor.execute('SELECT COUNT(*) FROM master_config')
+        count = cursor.fetchone()[0]
+        return count > 0
     
     def save_master_config(self, salt: bytes, password_hash: str):
         cursor = self._conn.cursor()
@@ -367,7 +283,6 @@ class DatabaseManager:
         self._audit.log_event("VAULT_INITIALIZED", "Vault created with master password")
 
     def get_master_config(self) -> Optional[Dict[str, Any]]:
-        if not self._conn: return None
         cursor = self._conn.cursor()
         cursor.execute('SELECT * FROM master_config LIMIT 1')
         row = cursor.fetchone()
@@ -403,7 +318,6 @@ class DatabaseManager:
 
     def get_pin_config(self) -> Optional[dict]:
         """Retrieves PIN configuration."""
-        if not self._conn: return None
         cursor = self._conn.execute('SELECT pin_hash, pin_salt, pin_wrapped_key, pin_attempts FROM master_config')
         row = cursor.fetchone()
         if row and row[0]:
@@ -436,7 +350,6 @@ class DatabaseManager:
 
     def get_everyday_config(self) -> Optional[dict]:
         """Retrieves Everyday Password configuration."""
-        if not self._conn: return None
         cursor = self._conn.execute('SELECT everyday_hash, everyday_salt, everyday_wrapped_key FROM master_config')
         row = cursor.fetchone()
         if row and row[0]:
@@ -461,13 +374,11 @@ class DatabaseManager:
         return cursor.fetchall()
 
     def get_vault_id(self) -> Optional[str]:
-        if not self._conn: return None
         cursor = self._conn.execute('SELECT vault_id FROM master_config')
         row = cursor.fetchone()
         return row[0] if row else None
 
     def set_vault_id(self, vault_id: str):
-        if not self._conn: return
         self._conn.execute('UPDATE master_config SET vault_id = ?', (vault_id,))
         self._conn.commit()
 
@@ -475,12 +386,6 @@ class DatabaseManager:
         """Verifies vault fingerprinting for hardware binding."""
         db_id = self.get_vault_id()
         if not db_id:
-            # Check if it's locked (encrypted but no key yet)
-            if DB_FILE.exists() and DB_FILE.stat().st_size > 0:
-                with open(DB_FILE, "rb") as f: hdr = f.read(16)
-                if not hdr.startswith(b"SQLITE"):
-                     return "LOCKED"
-            
             return "INITIAL"
         
         stored_id = keyring.get_password(SERVICE_VAULT, "fingerprint")
@@ -624,19 +529,6 @@ class DatabaseManager:
 
     # ============== Password Operations ==============
     
-    def add_password(self, title: str, username: str, password: str, url: str = "", notes: str = "", category: str = "") -> int:
-        cursor = self._conn.cursor()
-        cursor.execute('''
-            INSERT INTO passwords (title, username, password, url, notes, category)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            self._encrypt(title),
-            self._encrypt(username),
-            self._encrypt(password),
-            self._encrypt(url),
-            self._encrypt(notes),
-            category
-        ))
         self._conn.commit()
         entry_id = cursor.lastrowid
         if hasattr(self, '_audit') and self._audit:
